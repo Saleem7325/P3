@@ -202,7 +202,7 @@ char *get_path(char *parent, char *child){
 }
 
 void *directory_work(void *arg){
-	while(/*1*/!is_empty(directory_q) && dir_wait_count != (dir_threads - 1)){
+	while(/*1*/(dir_threads == 1 && !is_empty(directory_q)) || (!is_empty(directory_q) && dir_wait_count != (dir_threads - 1)) ){
 		dir_wait_count++;
 		char *dir_name = dequeue(directory_q);
 		dir_wait_count--;
@@ -249,7 +249,7 @@ void *directory_work(void *arg){
 }
 
 void *file_work(void *arg){
-	while(!dir_work_done && !is_empty(file_q) && file_wait_count != (file_threads - 1) ){
+	while((file_threads == 1 && !is_empty(file_q) && !dir_work_done) || (!dir_work_done && !is_empty(file_q) && file_wait_count != (file_threads - 1)) ){
 		file_wait_count++;
 		char *file_name = dequeue(file_q);
 		file_wait_count--;
