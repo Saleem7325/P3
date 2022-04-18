@@ -10,12 +10,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include "DS/queue.h"
+#include "word_wrap/word_wrap.h"
 
 int dir_threads = 1;
 int file_threads = 1;
 
 queue *directory_q;
 queue *file_q;
+word_wrap *ww;
 
 /*-------------------------- Input validation functions -----------------------------*/
 
@@ -202,7 +204,7 @@ char *get_path(char *parent, char *child){
 }
 
 void *directory_work(void *arg){
-	while(/*1*/(dir_threads == 1 && !is_empty(directory_q)) || (!is_empty(directory_q) && dir_wait_count != (dir_threads - 1)) ){
+	while( (dir_threads == 1 && !is_empty(directory_q)) || (!is_empty(directory_q) && dir_wait_count != (dir_threads - 1)) ){
 		dir_wait_count++;
 		char *dir_name = dequeue(directory_q);
 		dir_wait_count--;
@@ -249,7 +251,7 @@ void *directory_work(void *arg){
 }
 
 void *file_work(void *arg){
-	while((file_threads == 1 && !is_empty(file_q) && !dir_work_done) || (!dir_work_done && !is_empty(file_q) && file_wait_count != (file_threads - 1)) ){
+	while( (file_threads == 1 && !is_empty(file_q) && !dir_work_done) || (!dir_work_done && !is_empty(file_q) && file_wait_count != (file_threads - 1)) ){
 		file_wait_count++;
 		char *file_name = dequeue(file_q);
 		file_wait_count--;
@@ -257,7 +259,8 @@ void *file_work(void *arg){
 		if(file_name == NULL)
 			pthread_exit(arg);
 
-		printf("%s\n", file_name);
+		//printf("%s\n", file_name);
+		writeFile(ww, file_name);
 		free(file_name);
 	}	
 	request_exit(file_q, file_threads - 1);
@@ -338,6 +341,17 @@ void join_threads(){
 	free(file_threads_tid);
 	free(dir_threads_tid);
 }
+
+void init(int line_size){
+	file_q = malloc(sizeof(queue));	 
+	init_queue(file_q);
+
+	directory_q = malloc(sizeof(queue));	
+	init_queue(directory_q);
+
+	ww = malloc(sizeof(word_wrap));	
+	init_word_wrap(ww, line_size);	
+}
 		
 int main(int argc, char **argv){
 	if(argc < 2)
@@ -353,12 +367,12 @@ int main(int argc, char **argv){
 
 	}else if(argc == 4 && valid_first_arg(argv[1]) && valid_line_size(argv[2]) && isDirectory(argv[3])){
 		printf("4 args/valid first arg\nM:%d\nN:%d\n", dir_threads, file_threads);	
-		file_q = malloc(sizeof(queue));	 
+/*		file_q = malloc(sizeof(queue));	 
 		init_queue(file_q);
 
 		directory_q = malloc(sizeof(queue));	
-		init_queue(directory_q);
-
+		init_queue(directory_q);*/
+		init(atoi(argv[2]));
 		enqueue(directory_q, argv[3]);
 
 		start_threads();
@@ -369,6 +383,7 @@ int main(int argc, char **argv){
 
 	free(directory_q);
 	free(file_q);
+	free(ww);
 	exit(EXIT_SUCCESS);
 
 }

@@ -10,9 +10,10 @@
 #define MODE S_IRUSR|S_IWUSR
 #define FFLAGS O_RDONLY 
 #define WRITE_FLAGS O_CREAT|O_WRONLY|O_APPEND|O_TRUNC
-#define BUFSIZE 1 
+#define BUFSIZE 1024 
 
-char *buf;
+//char *buf;
+char buf[BUFSIZE];
 int buf_size = BUFSIZE;
 char *dyn_buf = NULL;
 int total = 0;
@@ -23,6 +24,7 @@ int bytes_read = 0;
 char white_chars[6] = {'\t', '\n', ' ', '\v', '\f', '\r'};
 int fail = 0;
 
+int line_start = 0;
 /*
 * Prints a new line, prob best if this gets deleted.
 */
@@ -89,6 +91,13 @@ int isRegularFile(char *path){
 }
 
 /*
+* Given an index in buffer(i) this method returns true if i is the last char in line
+*/
+int last_char_in_line(int p){
+	return (p % line_size) == 0;
+}
+
+/*
 * Copies from size bytes from buffer to cutoff starting at index in buffer
 */
 void copy_to_dyn_buf(){
@@ -112,10 +121,12 @@ void normalize(){
 	int first_char = 1;
 	int space_count = 0;
 	int newline_count = 0;
-	int line_start = 0;
+//	int line_start = 0;
 	int size = 0;
 
-	for(int i = 0; i < total; i++){
+	//for(int i = 0; i < total; i++){
+	for(int i = line_start; i < total; i++){
+
 		char curr = dyn_buf[i];
 
 		if(first_char){
@@ -180,7 +191,7 @@ void normalize(){
 				}else{
 					int start = findStart(i);
 					int end = findEnd(i);
-					if(start >= line_start){
+					if(start > line_start){
 						dyn_buf[start] = '\n';
 						i = start;
 						size = 0;
@@ -207,6 +218,7 @@ void normalize(){
 						size++;	
 					}else if(newline_count == 1){
 						newline_count = 0;
+						space_count = 0; //new	
 						size = 0;
 						first_char = 1;
 
@@ -217,19 +229,22 @@ void normalize(){
 						memmove(dyn_buf + i - 1, dyn_buf + i, total - i);
 						total--;	
 						i--;
+						size--; //new
 						space_count = 0;
 						newline_count = 1;
 					}
 
 				}else if(curr == ' '){
 					if(space_count == 1 || newline_count == 1){
-						memmove(dyn_buf + i - 1, dyn_buf + i, total - i);
+						memmove(dyn_buf + i - 1, dyn_buf + i, total - i); //may need to change to total - i - 1
 						total--;
 						i--;
 						newline_count = 0;
-					}
+						space_count = 1;
+					}else{ //new else
 						space_count = 1;
 						size++;
+					}
 				}else{
 					if(space_count == 1){
 						memmove(dyn_buf + i - 1, dyn_buf + i, total - i);
@@ -285,6 +300,7 @@ void writeFile(int line_size, int ofd, int fd){
 	free(dyn_buf);
 	dyn_buf = NULL;
 	total = 0;
+	line_start = 0;
 }
 
 /*
@@ -312,7 +328,7 @@ int main(int argc, char **argv){
 		return EXIT_FAILURE;
 	}else if(argc == 2 && atoi(argv[1]) > 0){
 		
-		buf = malloc(sizeof(char) * buf_size);
+	//	buf = malloc(sizeof(char) * buf_size);
 		fd = STDIN_FILENO;
 		ofd = STDOUT_FILENO;		
 		line_size = atoi(argv[1]);
@@ -320,7 +336,7 @@ int main(int argc, char **argv){
 
 	}else if (argc == 3){
 		if(isDirectory(argv[2])){	
-			buf = malloc(sizeof(char) * buf_size);
+	//		buf = malloc(sizeof(char) * buf_size);
 
 			char *dir_name = argv[2];
 			DIR *directory = opendir(dir_name);
@@ -366,13 +382,13 @@ int main(int argc, char **argv){
 				return EXIT_FAILURE;
 			}	
 
-			buf = malloc(sizeof(char) * buf_size);
+		//	buf = malloc(sizeof(char) * buf_size);
 			writeFile(line_size, ofd, fd);
 		}
 	}else
 		return EXIT_FAILURE;
 
-	free(buf);
+	//free(buf);
 
 	if(fail)
 		return EXIT_FAILURE;
