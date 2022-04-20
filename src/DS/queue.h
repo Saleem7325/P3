@@ -17,9 +17,7 @@ typedef struct queue{
 
 queue *init_queue(queue *q);
 
-char *dequeue(queue *q);
-
-//char *b_dequeue(queue *q, pthread_barrier_t *barrier);
+char *dequeue(queue *q, int *thread_wait_count);
 
 void enqueue(queue *q, char *data);
 

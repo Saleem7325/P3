@@ -1,16 +1,16 @@
-#include <stdlib.h>
+/*#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "word_wrap.h"
-//#include <fcntl.h>
-//#include <unistd.h>
-//#include <pthread.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 #define MODE S_IRUSR|S_IWUSR
 #define READ_FLAGS O_RDONLY 
 #define WRITE_FLAGS O_CREAT|O_WRONLY|O_APPEND|O_TRUNC
-#define BUFSIZE 1024 
+#define BUFSIZE 1024*/ 
+#include "word_wrap.h"
 
-char const white_chars[6] = {'\t', '\n', ' ', '\v', '\f', '\r'};
+char const white_chars[6] = {'\t', '\n', ' ', '\v', '\f', '\r'}; 
 
 /*------------------------------------ initialize lock/attributes -------------------------*/
 
@@ -22,7 +22,6 @@ word_wrap *init_word_wrap(word_wrap *ww, int size){
 	ww->bytes_read = 0;
 	ww->exit_code = 0;
 	ww->line_start = 0;
-	pthread_mutex_init(&ww->lock, NULL);
 	return ww;
 }
 
@@ -47,25 +46,32 @@ char *get_file_name(char *name){
 	return filename;
 }
 
-char *get_name(char *path, void *ptr){
-	unsigned long int index = (unsigned long int)path - (unsigned long int)ptr;
-	int len = strlen(path);
-
-	char *name = malloc(len - index);
-	name[len - index - 1] = '\0';
-	strncpy(name, path + index + 1, len - index - 1);
-
-	char *ret = get_file_name(name);
-	free(name);
-	return ret;
-}
-
 char *get_file_path(char *path){
-	void *ptr = strrchr(path, '/');
-	if(ptr != NULL)
-		return get_name(path, ptr);
-	else
+	int len = strlen(path);
+	int i = len - 1;
+	while(i > -1 && path[i] != '/')
+		i--;
+
+	if(i > -1){
+		//Separate file name from path and get the proper output/wrap file name
+		char *file_name = malloc(len - i);
+		file_name[len - i - 1] = '\0';
+		strncpy(file_name, path + i + 1, len - i - 1); 			
+		char *out_file_name = get_file_name(file_name);	
+		//printf("%s\n", file_name);
+		//printf("%s\n", out_file_name);
+		//Create path for the output file from the input file path	
+		char *out_file_path = malloc(strlen(out_file_name) + i + 2);
+		out_file_path[strlen(out_file_name) + i + 1] = '\0';
+		strncpy(out_file_path, path, i + 1); 			
+		strncpy(out_file_path + i + 1, out_file_name, strlen(out_file_name)); 			
+		free(file_name);
+		free(out_file_name);	
+		//printf("%s\n", out_file_path); 
+		return out_file_path;
+	}else
 		return get_file_name(path);
+			
 }
 
 int set_file_descriptors(word_wrap *ww, char *path){
@@ -318,8 +324,6 @@ void normalize(word_wrap *ww){
 * are read, then print the buffer after the chars have been normalized.
 */
 void writeFile(word_wrap *ww, char *path){
-	pthread_mutex_lock(&ww->lock);	
-
 	if(set_file_descriptors(ww, path))
 		return;
 
@@ -343,6 +347,5 @@ void writeFile(word_wrap *ww, char *path){
 	ww->dyn_buf = NULL;
 	ww->total = 0;
 	ww->line_start = 0;
-	pthread_mutex_unlock(&ww->lock);	
 }
 

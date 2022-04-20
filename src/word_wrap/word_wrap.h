@@ -1,9 +1,17 @@
-//#include <stdlib.h>
-//#include <stdio.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/stat.h>
+
+#define MODE S_IRUSR|S_IWUSR
+#define READ_FLAGS O_RDONLY 
+#define WRITE_FLAGS O_CREAT|O_WRONLY|O_APPEND|O_TRUNC
+#define BUFSIZE 1024 
+
+//char const white_chars[6] = {'\t', '\n', ' ', '\v', '\f', '\r'};
 
 typedef struct word_wrap{
 	pthread_mutex_t lock;

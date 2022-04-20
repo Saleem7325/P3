@@ -1,5 +1,5 @@
 #include <stdio.h>
-//#include <string.h>
+#include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <errno.h>
@@ -17,7 +17,8 @@ int file_threads = 1;
 
 queue *directory_q;
 queue *file_q;
-word_wrap *ww;
+
+int line_size;
 
 /*-------------------------- Input validation functions -----------------------------*/
 
@@ -123,16 +124,45 @@ int valid_first_arg(char *str){
 	return 1;
 }
 
+char *get_path(char *parent, char *child){
+	int plen = strlen(parent);
+	int clen = strlen(child);
+	int size = plen + clen + 2;
+
+	char *path = malloc(size);
+	strncpy(path, parent, plen);
+
+	path[plen] = '/';
+	strncpy(path + plen + 1, child, clen);
+	path[size - 1] = '\0';
+
+	return path;
+}
+
+int valid_file_name(char *name){
+	if(name[0] == '.')
+		return 0;
+	
+	if(strlen(name) >= 5 && strncmp("wrap.", name, 5) == 0) 
+		return 0;
+	
+	return 1;
+}
+
 int valid_line_size(char *str){
-	if(digits_only(str) && atoi(str) > 0)
+	int val = atoi(str);  
+
+	if(digits_only(str) && val > 0){
+		line_size = val;
 		return 1;
-	return 0;
+	}else
+		return 0;
 }
 
 /*
 * Checks whether a file is a directory
 */
-int isDirectory(char *path){
+int is_directory(char *path){
 	struct stat sbuf;
 	stat(path, &sbuf);
 	return S_ISDIR(sbuf.st_mode);	
@@ -141,7 +171,7 @@ int isDirectory(char *path){
 /*
 * Checks whether a file is a regular file
 */
-int isRegularFile(char *path){
+int is_reg_file(char *path){
 	struct stat sbuf;
 	stat(path, &sbuf);
 	return S_ISREG(sbuf.st_mode);
@@ -178,136 +208,99 @@ void exit_perror(int code){
 
 pthread_t *dir_threads_tid;
 pthread_t *file_threads_tid;
+
 int *dir_args;
 int *file_args;
-//int wait_count = 0;
 
 int dir_wait_count = 0;
 int file_wait_count = 0;
 
-int dir_work_done = 0;
-//pthread_barrier_t *barrier;
 
-char *get_path(char *parent, char *child){
-	int plen = strlen(parent);
-	int clen = strlen(child);
-	int size = plen + clen + 2;
+void read_directory(char *dir_name){
+	DIR *directory = opendir(dir_name);
+	if(directory == NULL){
+		free(dir_name);
+		closedir(directory);
+		return;
+	}
 
-	char *path = malloc(size);
-	strncpy(path, parent, plen);
+	struct dirent *entry = readdir(directory);
+	while(entry != NULL){
+		char *name = entry->d_name;
+		char *path = get_path(dir_name, name);
+		
+		if(is_reg_file(path) && valid_file_name(name))
+			enqueue(file_q, path);
+		else if(is_directory(path) && name[0] != '.')	
+			enqueue(directory_q, path);
+		
+		free(path);
+		entry = readdir(directory);
+	}	
 
-	path[plen] = '/';
-	strncpy(path + plen + 1, child, clen);
-	path[size - 1] = '\0';
+	free(dir_name);
+	closedir(directory);
+}
 
-	return path;
+int dir_cond(){
+	return (dir_threads == 1 && !is_empty(directory_q)) || (!is_empty(directory_q) && dir_wait_count != (dir_threads - 1)); 
 }
 
 void *directory_work(void *arg){
-	while( (dir_threads == 1 && !is_empty(directory_q)) || (!is_empty(directory_q) && dir_wait_count != (dir_threads - 1)) ){
-		dir_wait_count++;
-		char *dir_name = dequeue(directory_q);
-		dir_wait_count--;
+	while(dir_cond()){
+		char *dir_name = dequeue(directory_q, &dir_wait_count);
 
 		if(dir_name == NULL)
 			pthread_exit(arg);
-			//return arg;
+		else
+			read_directory(dir_name);	
 
-		DIR *directory = opendir(dir_name);
-
-		if(directory == NULL){
-			//puts("Directory == NULL");	
-			free(dir_name);
-			continue;
-		}
-
-		struct dirent *entry = readdir(directory);
-		while(entry != NULL){
-			char *name = entry->d_name;
-
-			if(isRegularFile(name) && name[0] != '.' /*&& strncmp("wrap.", name, 5) != 0*/){
-				//printf("%s\n", name);
-				char *path = get_path(dir_name, name);
-				enqueue(file_q, path);
-				free(path);
-			}else if(isDirectory(name) && name[0] != '.'){ 	
-				char *path = get_path(dir_name, name);
-				printf("%s\n", name);
-				enqueue(directory_q, path);
-				free(path);
-			}
-				
-			//if(name[0] != '.') printf("%s\n", name);
-
-			entry = readdir(directory);
-		}	
-		closedir(directory);
-		free(dir_name);
 	}	
-	request_exit(directory_q, dir_threads - 1);
-	dir_work_done = 1;
+
+	request_exit(directory_q, dir_wait_count);
 	pthread_exit(arg);
-	//return arg;
 }
 
 void *file_work(void *arg){
-	while( (file_threads == 1 && !is_empty(file_q) && !dir_work_done) || (!dir_work_done && !is_empty(file_q) && file_wait_count != (file_threads - 1)) ){
-		file_wait_count++;
-		char *file_name = dequeue(file_q);
-		file_wait_count--;
+	word_wrap *ww = malloc(sizeof(word_wrap));	
+	init_word_wrap(ww, line_size);
+	char *file_name;
 
-		if(file_name == NULL)
-			pthread_exit(arg);
-
-		//printf("%s\n", file_name);
+	while((file_name = dequeue(file_q, &file_wait_count)) != NULL){
 		writeFile(ww, file_name);
 		free(file_name);
 	}	
-	request_exit(file_q, file_threads - 1);
+
+	free(ww);
 	pthread_exit(arg);
 }
 
-/*
-void start_file_threads(){
-	pthread_barrier_init(&barrier, NULL, file_threads + 1);	
-
-	for(int i = 0; i < file_threads; i++)
-		pthread_create(&file_threads_tid[i], NULL, file_work, NULL);
-	while(
-	
-	
+void free_all(){
+	free(file_threads_tid);
+	free(dir_threads_tid);
+	free(dir_args);
+	free(file_args);
+	free(directory_q);
+	free(file_q);
 }
-*/
 
-void wait_for_threads(){
-	/*while(wait_count != (file_threads + dir_threads)){
-		usleep(100);
-	}
-	
-	for(int i = 0; i < dir_threads; i++){
-		pthread_cancel(dir_threads_tid[i]);	
-		printf("Dir thread %d returns: %d\n", i, dir_args[i]); 
-	}
-
-	for(int i = 0; i < file_threads; i++){
-		pthread_cancel(file_threads_tid[i]);
-		printf("File thread %d returns: %d\n", i, file_args[i]); 
-	}*/	
-
+void join_threads(){
 	for(int i = 0; i < dir_threads; i++){
 		pthread_join(dir_threads_tid[i], NULL);	
 		printf("Dir thread %d returns: %d\n", i, dir_args[i]); 
 	}
 
+	while(file_wait_count != file_threads)
+		usleep(100);
+
+	request_exit(file_q, file_threads);
+
 	for(int i = 0; i < file_threads; i++){
 		pthread_join(file_threads_tid[i], NULL);
 		printf("File thread %d returns: %d\n", i, file_args[i]); 
 	}
-
-	free(file_threads_tid);
-	free(dir_threads_tid);
-	free(dir_args);
-	free(file_args);	
+	
+	free_all();
 }
 
 void start_threads(){
@@ -318,39 +311,24 @@ void start_threads(){
 	file_args = malloc(sizeof(int) * file_threads);
 
 	for(int i = 0; i < dir_threads; i++){
-	//	dir_args[i] = malloc(sizeof(int));
 		dir_args[i] = 1;
 		pthread_create(&dir_threads_tid[i], NULL, directory_work, &dir_args[i]/*NULL*/);	
 	}
 
 	for(int i = 0; i < file_threads; i++){
-		//file_args[i] = malloc(sizeof(int));
 		file_args[i] = 1;
 		pthread_create(&file_threads_tid[i], NULL, file_work, &file_args[i]/*NULL*/);
 	}
-	wait_for_threads();
+
+	join_threads();
 }
 
-void join_threads(){
-	for(int i = 0; i < dir_threads; i++)
-		pthread_join(dir_threads_tid[i], NULL);	
-
-	for(int i = 0; i < file_threads; i++)
-		pthread_join(file_threads_tid[i], NULL);
-	
-	free(file_threads_tid);
-	free(dir_threads_tid);
-}
-
-void init(int line_size){
+void init(){
 	file_q = malloc(sizeof(queue));	 
 	init_queue(file_q);
 
 	directory_q = malloc(sizeof(queue));	
 	init_queue(directory_q);
-
-	ww = malloc(sizeof(word_wrap));	
-	init_word_wrap(ww, line_size);	
 }
 		
 int main(int argc, char **argv){
@@ -365,25 +343,14 @@ int main(int argc, char **argv){
 
 		puts("digits only 3 args\n");
 
-	}else if(argc == 4 && valid_first_arg(argv[1]) && valid_line_size(argv[2]) && isDirectory(argv[3])){
+	}else if(argc == 4 && valid_first_arg(argv[1]) && valid_line_size(argv[2]) && is_directory(argv[3])){
 		printf("4 args/valid first arg\nM:%d\nN:%d\n", dir_threads, file_threads);	
-/*		file_q = malloc(sizeof(queue));	 
-		init_queue(file_q);
-
-		directory_q = malloc(sizeof(queue));	
-		init_queue(directory_q);*/
-		init(atoi(argv[2]));
+		init();
 		enqueue(directory_q, argv[3]);
-
 		start_threads();
-		//join_threads();
-
 	}else
 		exit_perror(1);
 
-	free(directory_q);
-	free(file_q);
-	free(ww);
 	exit(EXIT_SUCCESS);
 
 }

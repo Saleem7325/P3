@@ -11,31 +11,13 @@ queue *init_queue(queue *q){
 	return q;
 }
 
-/*
-char *b_dequeue(queue *q, pthread_barrier_t *barrier){
-	pthread_mutex_lock(&q->lock);
-
-	while(q->empty)
-		pthread_barrier_wait(barrier);	
-
-	node *h = q->head;
-	char *ret = h->data;	
-	q->head = h->next;
-	free(h);
-
-	if(q->head == NULL)
-		q->empty = 1;	
-
-	pthread_mutex_unlock(&q->lock);
-	return ret;
-}
-*/
-
-char *dequeue(queue *q){
+char *dequeue(queue *q, int *thread_wait_count){
 	pthread_mutex_lock(&q->lock);
 
 	while(q->empty){
+		(*thread_wait_count)++; 
 		pthread_cond_wait(&q->dequeue_ready, &q->lock);	
+		(*thread_wait_count)--; 
 
 		if(q->request_exit){
 			pthread_mutex_unlock(&q->lock);
