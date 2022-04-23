@@ -154,10 +154,10 @@ int valid_file_name(char *name){
 }
 
 int valid_line_size(char *str){
-	int val = atoi(str) + 1;  
+	int val = atoi(str);  
 
-	if(digits_only(str) && val > 1){
-		line_size = val;
+	if(digits_only(str) && val > 0){
+		line_size = val /*+ 1*/;
 		return 1;
 	}else
 		return 0;

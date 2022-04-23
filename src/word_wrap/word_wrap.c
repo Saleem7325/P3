@@ -263,7 +263,7 @@ void not_last_char_in_line(word_wrap *ww, int *i, int *space_count, int *newline
 			}
 			if(*space_count == 1){
 				shift_left(ww, i);
-				//(*size)--;//new
+				(*size)--;//new
 				*space_count = 0;
 				*newline_count = 1;
 			}
