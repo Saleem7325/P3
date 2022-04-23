@@ -9,16 +9,20 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include "DS/queue.h"
+#include "DS/directory_stack.h"
+#include "DS/file_stack.h"
 #include "word_wrap/word_wrap.h"
 
 int dir_threads = 1;
 int file_threads = 1;
 
-queue *directory_q;
-queue *file_q;
+directory_stack *dir_s;
+file_stack *file_s;
 
 int line_size;
+
+int recursive = 1;
+int file_arg = 0;
 
 /*-------------------------- Input validation functions -----------------------------*/
 
@@ -150,9 +154,9 @@ int valid_file_name(char *name){
 }
 
 int valid_line_size(char *str){
-	int val = atoi(str);  
+	int val = atoi(str) + 1;  
 
-	if(digits_only(str) && val > 0){
+	if(digits_only(str) && val > 1){
 		line_size = val;
 		return 1;
 	}else
@@ -212,8 +216,8 @@ pthread_t *file_threads_tid;
 int *dir_args;
 int *file_args;
 
-int dir_wait_count = 0;
-int file_wait_count = 0;
+//int dir_wait_count = 0;
+//int file_wait_count = 0;
 
 
 void read_directory(char *dir_name){
@@ -230,9 +234,9 @@ void read_directory(char *dir_name){
 		char *path = get_path(dir_name, name);
 		
 		if(is_reg_file(path) && valid_file_name(name))
-			enqueue(file_q, path);
-		else if(is_directory(path) && name[0] != '.')	
-			enqueue(directory_q, path);
+			push_f(file_s, path);
+		else if(recursive && is_directory(path) && name[0] != '.')	
+			push_d(dir_s, path);	
 		
 		free(path);
 		entry = readdir(directory);
@@ -242,33 +246,40 @@ void read_directory(char *dir_name){
 	closedir(directory);
 }
 
-int dir_cond(){
-	return (dir_threads == 1 && !is_empty(directory_q)) || (!is_empty(directory_q) && dir_wait_count != (dir_threads - 1)); 
-}
+/*int dir_cond(){
+	return (dir_threads == 1 && !is_empty(dir_q)) || (!is_empty(dir_q) && dir_wait_count != (dir_threads - 1)); 
+}*/
 
 void *directory_work(void *arg){
-	while(dir_cond()){
-		char *dir_name = dequeue(directory_q, &dir_wait_count);
+	char *dir_name = pop_d(dir_s);
+	while(dir_name != NULL/*dir_cond()*/){
+		//char *dir_name = dequeue(directory_q, &dir_wait_count);
+		//if(dir_name == NULL)
+		//	pthread_exit(arg);
+		//else
+		read_directory(dir_name);	
 
-		if(dir_name == NULL)
-			pthread_exit(arg);
-		else
-			read_directory(dir_name);	
+		if(!recursive)
+			break;	
 
+		dir_name = pop_d(dir_s);
 	}	
 
-	request_exit(directory_q, dir_wait_count);
+	//request_exit(directory_q, dir_wait_count);
+	close_file_stack(file_s);
 	pthread_exit(arg);
 }
 
 void *file_work(void *arg){
 	word_wrap *ww = malloc(sizeof(word_wrap));	
 	init_word_wrap(ww, line_size);
-	char *file_name;
 
-	while((file_name = dequeue(file_q, &file_wait_count)) != NULL){
-		writeFile(ww, file_name);
+	char *file_name = pop_f(file_s);
+	while(file_name != NULL){
+		write_file(ww, file_name, file_arg);
 		free(file_name);
+		file_name = pop_f(file_s);
+
 	}	
 
 	free(ww);
@@ -277,23 +288,28 @@ void *file_work(void *arg){
 
 void free_all(){
 	free(file_threads_tid);
-	free(dir_threads_tid);
-	free(dir_args);
 	free(file_args);
-	free(directory_q);
-	free(file_q);
+	free(file_s);
+
+	if(!file_arg){
+		free(dir_s);
+		free(dir_threads_tid);
+		free(dir_args);
+	}
 }
 
 void join_threads(){
-	for(int i = 0; i < dir_threads; i++){
-		pthread_join(dir_threads_tid[i], NULL);	
-		printf("Dir thread %d returns: %d\n", i, dir_args[i]); 
+	if(!file_arg){
+		for(int i = 0; i < dir_threads; i++){
+			pthread_join(dir_threads_tid[i], NULL);	
+			printf("Dir thread %d returns: %d\n", i, dir_args[i]); 
+		}
 	}
 
-	while(file_wait_count != file_threads)
-		usleep(100);
+	//while(file_wait_count != file_threads)
+		//usleep(100);
 
-	request_exit(file_q, file_threads);
+	//request_exit(file_q, file_threads);
 
 	for(int i = 0; i < file_threads; i++){
 		pthread_join(file_threads_tid[i], NULL);
@@ -304,31 +320,51 @@ void join_threads(){
 }
 
 void start_threads(){
-	dir_threads_tid = malloc(sizeof(pthread_t) * dir_threads);
-	file_threads_tid = malloc(sizeof(pthread_t) * file_threads);
+	if(!file_arg){
+		dir_threads_tid = malloc(sizeof(pthread_t) * dir_threads);
+		dir_args = malloc(sizeof(int) * dir_threads);
 
-	dir_args = malloc(sizeof(int) * dir_threads);
-	file_args = malloc(sizeof(int) * file_threads);
-
-	for(int i = 0; i < dir_threads; i++){
-		dir_args[i] = 1;
-		pthread_create(&dir_threads_tid[i], NULL, directory_work, &dir_args[i]/*NULL*/);	
+		for(int i = 0; i < dir_threads; i++){
+			dir_args[i] = 1;
+			pthread_create(&dir_threads_tid[i], NULL, directory_work, &dir_args[i]);	
+		}	
 	}
+
+	file_threads_tid = malloc(sizeof(pthread_t) * file_threads);
+	file_args = malloc(sizeof(int) * file_threads);
 
 	for(int i = 0; i < file_threads; i++){
 		file_args[i] = 1;
-		pthread_create(&file_threads_tid[i], NULL, file_work, &file_args[i]/*NULL*/);
+		pthread_create(&file_threads_tid[i], NULL, file_work, &file_args[i]);
 	}
 
 	join_threads();
 }
 
-void init(){
-	file_q = malloc(sizeof(queue));	 
-	init_queue(file_q);
+void init_mem(){
+	file_s = malloc(sizeof(file_stack));	 
+	init_file_stack(file_s, file_threads);
 
-	directory_q = malloc(sizeof(queue));	
-	init_queue(directory_q);
+	if(file_arg)
+		return;
+
+	dir_s = malloc(sizeof(directory_stack));	
+	init_directory_stack(dir_s, dir_threads);
+}
+
+void file_arg_case(char *file){
+	file_arg = 1;
+	init_mem();
+	push_f(file_s, file);	
+	close_file_stack(file_s);
+	//start_threads();
+}
+
+void dir_arg_case(char *dir){
+	//file_threads = 5;
+	init_mem();
+	push_d(dir_s, dir);	
+	//start_threads();
 }
 		
 int main(int argc, char **argv){
@@ -336,20 +372,39 @@ int main(int argc, char **argv){
 		exit_perror(1);
 
 	if(argc == 2 && valid_line_size(argv[1])){
-		
-		puts("digits only 2 args\n");
+
+		file_arg_case("STDIN_FILENO");
+//		puts("digits only 2 args\n");
 
 	}else if(argc == 3 && valid_line_size(argv[1])){
 
-		puts("digits only 3 args\n");
+		if(is_directory(argv[2])){
+			recursive = 0;
+			dir_arg_case(argv[2]);
+		//	init_mem();
+		//	enqueue(directory_q, argv[3]);
+		//	start_threads();
+
+		}else if(is_reg_file(argv[2]) && valid_file_name(argv[2])){
+
+			file_arg_case(argv[2]);
+
+		}else
+			exit_perror(2);
+
+//		puts("digits only 3 args\n");
 
 	}else if(argc == 4 && valid_first_arg(argv[1]) && valid_line_size(argv[2]) && is_directory(argv[3])){
-		printf("4 args/valid first arg\nM:%d\nN:%d\n", dir_threads, file_threads);	
-		init();
-		enqueue(directory_q, argv[3]);
-		start_threads();
+
+//		printf("4 args/valid first arg\nM:%d\nN:%d\n", dir_threads, file_threads);	
+		dir_arg_case(argv[3]);
+		//init_mem();
+		//enqueue(directory_q, argv[3]);
+		//start_threads();
 	}else
 		exit_perror(1);
+
+	start_threads();
 
 	exit(EXIT_SUCCESS);
 

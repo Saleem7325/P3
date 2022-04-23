@@ -28,4 +28,4 @@ typedef struct word_wrap{
 
 word_wrap *init_word_wrap(word_wrap *ww, int size);
 
-void writeFile(word_wrap *ww, char *path);
+void write_file(word_wrap *ww, char *path, int file_arg);
