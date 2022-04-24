@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <errno.h>
 #include <sys/stat.h>
 
 #define MODE S_IRUSR|S_IWUSR
@@ -22,8 +23,11 @@ typedef struct word_wrap{
 	int ifd; 
 	int ofd; 
 	int bytes_read;
-	int exit_code;
+	//int exit_code;
 	int line_start;
+	int pe;
+	//int line;
+	char *path;
 }word_wrap;
 
 word_wrap *init_word_wrap(word_wrap *ww, int size);

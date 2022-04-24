@@ -23,12 +23,45 @@ word_wrap *init_word_wrap(word_wrap *ww, int size){
 	ww->line_size = size; 
 	ww->total = 0;
 	ww->bytes_read = 0;
-	ww->exit_code = 0;
+	//ww->exit_code = 0;
 	ww->line_start = 0;
+	ww->pe = 0;
+	//ww->line = 0;
+	//ww->path; //= NULL;
 	return ww;
 }
 
 /*------------------------------------- Write File Helper functions --------------------------*/
+
+
+void p_error(word_wrap *ww, int code){
+	switch(code){
+		case 1 : 
+		//	errno = EPERM; 
+		//	printf(stderr, "Unreadable input file %s : %s\n", file, ww->line_start, strerror(errno));
+			perror("Unreadable input file");
+			return;  
+		case 2:
+		//	errno = EPERM; 
+			perror("Unable to create output file");
+			return;
+		case 3:
+			if(ww->ofd != 1){
+				errno = EINVAL; 
+				fprintf(stderr, "Word(s) longer than line size: %d in %s : %s\n", ww->line_size, ww->path, /*(ww->total/(*//*+ 1*/ strerror(errno));
+				//perror("");
+			}else{
+			
+				errno = EINVAL; 
+				fprintf(stderr, "Word(s) longer than line size: %d : %s\n", ww->line_size, strerror(errno));
+				//perror("");	
+			}
+			ww->pe = 1;
+			return;
+		default:
+			return;	
+	}
+}
 
 /*
 * Takes a char * that contains the file name of the file we want to wrap
@@ -86,7 +119,8 @@ int set_file_descriptors(word_wrap *ww, char *path, int file_arg){
 
 	ww->ifd = open(path, READ_FLAGS);
 	if(ww->ifd < 0){
-		ww->exit_code = 2; //set proper exit code
+		//ww->exit_code = 2; //set proper exit code
+		p_error(ww, 2);
 		return 1;
 	}else if(file_arg){
 		ww->ofd = STDOUT_FILENO; 
@@ -95,12 +129,17 @@ int set_file_descriptors(word_wrap *ww, char *path, int file_arg){
 		
 	char *file_path = get_file_path(path);
 	ww->ofd = open(file_path, WRITE_FLAGS, MODE);
-	free(file_path);
+	ww->path = file_path;
+	//free(file_path);
 
 	if(ww->ofd < 0){
-		ww->exit_code = 2; //set proper exit code
+		p_error(ww, 2);
+		free(file_path);
+		//ww->exit_code = 2; //set proper exit code
 		return 1;
 	}	
+	//free(file_path);
+
 	
 	return 0;
 }
@@ -238,9 +277,13 @@ int last_char_in_line(word_wrap * ww, int *i, int *space_count, int *newline_cou
 			*i = end;
 			*size = 0;
 			*first_char = 1;	
-			ww->exit_code= 2;
+			//ww->exit_code= 2;
+			if(!(ww->pe))
+				p_error(ww, 3); 
 		}else if (end >= ww->total && start <= ww->line_start){
-			ww->exit_code= 2;
+			//ww->exit_code= 2;
+			if(!(ww->pe))
+				p_error(ww, 3); 
 			return 0;
 		}
 	}
@@ -330,6 +373,7 @@ void normalize(word_wrap *ww){
 			size++;
 			newline_count = 0;
 			space_count = 0;
+			//ww->line++;
 			continue;
 		}
 
@@ -371,7 +415,10 @@ void write_file(word_wrap *ww, char *path, int file_arg){
 		newLine(ww);
 
 	free(ww->dyn_buf);
+	if(!file_arg)
+		free(ww->path);
 	ww->dyn_buf = NULL;
+	ww->path = NULL;
 	ww->total = 0;
 	ww->line_start = 0;
 }

@@ -202,7 +202,6 @@ void exit_perror(int code){
 			perror("Word longer than line width");
 			return;
 		default:
-			puts("Invalid error code\n");
 			return;	
 	}
 	exit(EXIT_FAILURE);	
@@ -302,7 +301,7 @@ void join_threads(){
 	if(!file_arg){
 		for(int i = 0; i < dir_threads; i++){
 			pthread_join(dir_threads_tid[i], NULL);	
-			printf("Dir thread %d returns: %d\n", i, dir_args[i]); 
+			//printf("Dir thread %d returns: %d\n", i, dir_args[i]); 
 		}
 	}
 
@@ -313,7 +312,7 @@ void join_threads(){
 
 	for(int i = 0; i < file_threads; i++){
 		pthread_join(file_threads_tid[i], NULL);
-		printf("File thread %d returns: %d\n", i, file_args[i]); 
+		//printf("File thread %d returns: %d\n", i, file_args[i]); 
 	}
 	
 	free_all();
