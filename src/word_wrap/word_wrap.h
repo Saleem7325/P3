@@ -12,21 +12,28 @@
 #define WRITE_FLAGS O_CREAT|O_WRONLY|O_APPEND|O_TRUNC
 #define BUFSIZE 1024 
 
-//char const white_chars[6] = {'\t', '\n', ' ', '\v', '\f', '\r'};
-
+/*
+* - buffer of size 1024 bytes for reading from ifd(input file descriptor) pertaining to path
+* - dyn_buf is a dynamic buffer for storing normalized bytes
+* - total is the number of bytes in dyn_buf
+* - line_size is the number of characters that should be printed before each '\n' (one '\n' sequence).
+* - ifd is the file descriptor to read from(input file descriptor)
+* - ofd is the file descriptor to write to(output file descriptor)
+* - bytes_read is the number of bytes read in previous call to read
+* - line_start is the index of the first byte in the most recent line that has not ended
+* - pe is a flag that indicates whether a word to big error has been printed before
+* - path contains the path which corresponds to ifd
+*/
 typedef struct word_wrap{
-	pthread_mutex_t lock;
-	char buf[1024];
+	char buf[BUFSIZE];
 	char *dyn_buf;
 	int total;
 	int line_size; 
 	int ifd; 
 	int ofd; 
 	int bytes_read;
-	//int exit_code;
 	int line_start;
 	int pe;
-	//int line;
 	char *path;
 }word_wrap;
 

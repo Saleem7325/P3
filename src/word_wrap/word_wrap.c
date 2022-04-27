@@ -1,60 +1,46 @@
-/*#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <errno.h>
-#include <sys/stat.h>
-
-#define MODE S_IRUSR|S_IWUSR
-#define FFLAGS O_RDONLY 
-#define WRITE_FLAGS O_CREAT|O_WRONLY|O_APPEND|O_TRUNC
-#define BUFSIZE 1024*/ 
 #include "word_wrap.h"
 
 const char white_chars[6] = {'\t', '\n', ' ', '\v', '\f', '\r'};
 
-/*------------------------------------ initialize lock/attributes -------------------------*/
+/*---------------------------------------------------- Initialize word_wrap attributes -----------------------------------------------------------*/
 
+/*
+* Receives a word_wrap *ww, and an int size which indicates line size. init_word_wrap sets relevant fields in ww struct
+* such that when write_file is passed ww struct pointer, write_file has necessary information for wrapping and writing.
+*/
 word_wrap *init_word_wrap(word_wrap *ww, int size){
 	ww->dyn_buf = NULL;	
 	ww->total = 0;
 	ww->line_size = size; 
 	ww->total = 0;
 	ww->bytes_read = 0;
-	//ww->exit_code = 0;
 	ww->line_start = 0;
 	ww->pe = 0;
-	//ww->line = 0;
-	//ww->path; //= NULL;
 	return ww;
 }
 
-/*------------------------------------- Write File Helper functions --------------------------*/
+/*------------------------------------------------------- Write File Helper functions ------------------------------------------------------------*/
 
-
+/*
+* Receives a word_wrap *ww, and an int code which specifies which error message to print. p_error gets file data
+* from ww to print error messages with relevant file info. 
+*/
 void p_error(word_wrap *ww, int code){
 	switch(code){
 		case 1 : 
-		//	errno = EPERM; 
-		//	printf(stderr, "Unreadable input file %s : %s\n", file, ww->line_start, strerror(errno));
 			perror("Unreadable input file");
 			return;  
 		case 2:
-		//	errno = EPERM; 
 			perror("Unable to create output file");
 			return;
 		case 3:
 			if(ww->ofd != 1){
 				errno = EINVAL; 
 				fprintf(stderr, "Word(s) longer than line size: %d in %s : %s\n", ww->line_size, ww->path, /*(ww->total/(*//*+ 1*/ strerror(errno));
-				//perror("");
 			}else{
 			
 				errno = EINVAL; 
 				fprintf(stderr, "Word(s) longer than line size: %d : %s\n", ww->line_size, strerror(errno));
-				//perror("");	
 			}
 			ww->pe = 1;
 			return;
@@ -64,8 +50,7 @@ void p_error(word_wrap *ww, int code){
 }
 
 /*
-* Takes a char * that contains the file name of the file we want to wrap
-* returns a char * containing with wrap. added before name
+* Receives a char *name that contains the file name of the file we want to wrap returns a char * containing with "wrap." added before name
 */
 char *get_file_name(char *name){
 	int reg_file_name_length = strlen(name) + 1;
@@ -82,6 +67,10 @@ char *get_file_name(char *name){
 	return filename;
 }
 
+/*
+* Receives a char *path, which correlates to ww->ifd. get_file_path returns the path relevant to ww->ofd or the output file
+* created by write_file ex: directory/directory/filename -> directory/directory/wrap.filename  
+*/
 char *get_file_path(char *path){
 	int len = strlen(path);
 	int i = len - 1;
@@ -89,27 +78,27 @@ char *get_file_path(char *path){
 		i--;
 
 	if(i > -1){
-		//Separate file name from path and get the proper output/wrap file name
 		char *file_name = malloc(len - i);
 		file_name[len - i - 1] = '\0';
 		strncpy(file_name, path + i + 1, len - i - 1); 			
 		char *out_file_name = get_file_name(file_name);	
-		//printf("%s\n", file_name);
-		//printf("%s\n", out_file_name);
-		//Create path for the output file from the input file path	
 		char *out_file_path = malloc(strlen(out_file_name) + i + 2);
 		out_file_path[strlen(out_file_name) + i + 1] = '\0';
 		strncpy(out_file_path, path, i + 1); 			
 		strncpy(out_file_path + i + 1, out_file_name, strlen(out_file_name)); 			
 		free(file_name);
 		free(out_file_name);	
-		//printf("%s\n", out_file_path); 
 		return out_file_path;
 	}else
 		return get_file_name(path);
 			
 }
 
+/*
+* Receives a word_wrap *ww, char *path, and int file_arg. set_file_decriptors opens the file pertaining to path and sets ww->ifd. If
+* file_arg = 1, ww->ofd(output file descriptor) is set to STDOUT_FILENO, otherwise the relevant output file is opened and ww->ofd is set 
+* accordingly. If at any point a file cannot be opened/does not exist an error message is printed and 1 it returned otherwise 0 is returned
+*/
 int set_file_descriptors(word_wrap *ww, char *path, int file_arg){
 	if(strcmp(path, "STDIN_FILENO") == 0){
 		ww->ifd = STDIN_FILENO;
@@ -119,7 +108,6 @@ int set_file_descriptors(word_wrap *ww, char *path, int file_arg){
 
 	ww->ifd = open(path, READ_FLAGS);
 	if(ww->ifd < 0){
-		//ww->exit_code = 2; //set proper exit code
 		p_error(ww, 2);
 		return 1;
 	}else if(file_arg){
@@ -130,24 +118,20 @@ int set_file_descriptors(word_wrap *ww, char *path, int file_arg){
 	char *file_path = get_file_path(path);
 	ww->ofd = open(file_path, WRITE_FLAGS, MODE);
 	ww->path = file_path;
-	//free(file_path);
 
 	if(ww->ofd < 0){
 		p_error(ww, 2);
 		free(file_path);
-		//ww->exit_code = 2; //set proper exit code
 		return 1;
 	}	
-	//free(file_path);
-
 	
 	return 0;
 }
 
-/*--------------------------------------- Normalize helper functions ----------------------------------*/
+/*-------------------------------------------------------------- Normalize helper functions ---------------------------------------------------------*/
 
 /*
-* Prints a new line, prob best if this gets deleted.
+* Recieves a word_wrap *ww, writes '\n' to ww->ofd.
 */
 void newLine(word_wrap *ww){
 	char p = '\n';
@@ -155,7 +139,7 @@ void newLine(word_wrap *ww){
 }
 
 /*
-* Checks if character passed is a white space char
+* Checks if character passed is in white_chars
 */
 int is_white_char(char c){
 	for(int i = 0; i < 6; i++)
@@ -165,14 +149,13 @@ int is_white_char(char c){
 }
 
 /*
-* If the last char in line is not a white space, given an index p findStart will
-* find the first index that is a white space starting at p and decrementing until
-* a whitespace is reached. If p reaches 0 without encountering a white space it will
-* return 0. 
+* Recieves a word_wrap *ww, and int p, given p findStart will find the first index that is a white space 
+* starting at p and decrementing until a whitespace is reached. If p reaches 0 without encountering a 
+* white space 0 is returned otherwise the index of the first previous white space is returned. 
 */
 int findStart(word_wrap *ww, int p){
 	int start = p;
-	while(start > -1 && (!is_white_char(ww->dyn_buf[start]))) //changed to -1 from 0
+	while(start > -1 && (!is_white_char(ww->dyn_buf[start]))) 
 		start--;
 
 	if(start < 0)
@@ -181,9 +164,9 @@ int findStart(word_wrap *ww, int p){
 }
 
 /*
-* Pretty much the same thing at findStart but p gets incremented instead, typically used when
-* a word is too big to fit on a line and we need to collect the rest of the chars from another 
-* read call.
+* Recieves a word_wrap *ww, and int p, given p findEnd will find the first index that is a white space 
+* starting at p and incrementing until a whitespace is reached. If p reaches ww->total without encountering a 
+* white space total is returned otherwise the index of the first following white space is returned.
 */
 int findEnd(word_wrap *ww, int p){
 	int end = p;
@@ -197,7 +180,7 @@ int findEnd(word_wrap *ww, int p){
 
 
 /*
-* Copies from size bytes from buffer to cutoff starting at index in buffer
+* Recieves a word_wrap *ww, copies ww->bytes_read bytes from ww->buf[0] to ww->dyn_buf[ww->total : ww->total+bytes_read]
 */
 void copy_to_dyn_buf(word_wrap * ww){
 	int index = ww->total;
@@ -206,6 +189,12 @@ void copy_to_dyn_buf(word_wrap * ww){
 	 
 }
 
+/*
+* Recieves word_wrap *ww, and int i which is the index to the first character in a line in ww->dyn_buf. first_char_white returns the 
+* index of the next non white space character in ww->dyn_buf following ww->dyn_buf[*i] and moves bytes ww->dyn_buf[next_non_white_char : total] 
+* to ww->dyn_buf[i] and adjusts ww->total to reflect these changes. If no non white space character is found i is returned and ww->total
+* adjusted. 
+*/
 int first_char_white(word_wrap * ww, int i){
 	char curr = ww->dyn_buf[i];	
 
@@ -218,22 +207,36 @@ int first_char_white(word_wrap * ww, int i){
 			if(i == 0)
 				ww->total = 0;
 			else
-				ww->total = i /*- 1*/;
+				ww->total = i;
 						
 			return 0;
 		}
 		memmove(ww->dyn_buf + i, ww->dyn_buf + p, ww->total - p);
-		ww->total = ww->total - (p - i); //was - (p - i)
+		ww->total = ww->total - (p - i); 
 	}
 	return 1;
 }
 
+/*
+* Recieves word_wrap *ww, and int *i which is an index to a character in ww->dyn_buf. shift_left moves bytes ww->dyn_buf[i : total]  
+* to ww->dyn_buf[i-1] to overwrite a byte in ww->dyn_buf. ww->total and *i are adjusted to reflect these changes in ww->dyn_buf 
+*/
 void shift_left(word_wrap * ww, int *i){
 	memmove(ww->dyn_buf + *i - 1, ww->dyn_buf + *i, ww->total - *i);
 	ww->total--;	
 	(*i)--;
 }
 
+
+/*
+* Recieves word_wrap *ww, and various other pointers pertaining to loop iteration/flags in normalize. last_char_in_line determines 
+* where the line at ww->dyn_buf[*i] should end. If the word needs to be excluded from the line in order to meet ww->line_size width
+* a new line char is written to the first white space before ww->dyn_buf[*i], if the word cannot fit on the line the next white 
+* space following ww->dyn_buf[*i] is replaced with a new line and an error message is printed indicating that a word is too 
+* large to meet ww->line_size width. In both cases 0 is returned and normalize continues. If no white space character is found between 
+* ww->dyn_buf[ww->line_start : *i] or ww->dyn_buf[*i : ww->total] an error message is printed and 1 is returned to signal normalize to
+* break.
+*/
 int last_char_in_line(word_wrap * ww, int *i, int *space_count, int *newline_count, int *first_char, int *size){
 	char curr = ww->dyn_buf[*i];	
 
@@ -277,11 +280,9 @@ int last_char_in_line(word_wrap * ww, int *i, int *space_count, int *newline_cou
 			*i = end;
 			*size = 0;
 			*first_char = 1;	
-			//ww->exit_code= 2;
 			if(!(ww->pe))
 				p_error(ww, 3); 
 		}else if (end >= ww->total && start <= ww->line_start){
-			//ww->exit_code= 2;
 			if(!(ww->pe))
 				p_error(ww, 3); 
 			return 0;
@@ -290,6 +291,23 @@ int last_char_in_line(word_wrap * ww, int *i, int *space_count, int *newline_cou
 	return 1;
 }
 
+/*
+* Recieves word_wrap *ww, and various other pointers pertaining to loop iteration/flags in normalize. not_last_char_in_line behaves 
+* according to the values of the flags passed by normalize. Whether to set flags and continue or overwrite a previous white space character
+* is determined by the value of the flags(space_count, newline_count, first_char, size) along with the value of ww->dyn_buf[*i]. To simply
+* explain not_last_char_in_line we look which case ww->dyn_buf[*i] fits into:
+*
+*	1) Non white space character: if previous character is '\n' replace with ' ' otherwise return.
+*
+*	2) White space character: 
+*		- if '\n' or ' ', and space_count and newline_count = 0 set relevant flags
+*		- if '\n', and space_count = 1 shift ww->dyn_buf[*i : ww->total] left one index 
+*		- if ' ', and newline_count = 1 shift ww->dyn_buf[*i : ww->total] left one index
+*		- if neither '\n' or ' ', and space_count or newline_count is 0 replace ww->dyn_buf[*i] with ' ' 
+*		- if neither '\n' or ' ', and space_count or newline_count is 1  replace ww->dyn_buf[*i] with ' ' and
+*		  shift ww->dyn_buf[*i : ww->total] left one index
+*		  
+*/
 void not_last_char_in_line(word_wrap *ww, int *i, int *space_count, int *newline_count, int *first_char, int *size){
 	char curr = ww->dyn_buf[*i];	
 
@@ -306,7 +324,7 @@ void not_last_char_in_line(word_wrap *ww, int *i, int *space_count, int *newline
 			}
 			if(*space_count == 1){
 				shift_left(ww, i);
-				(*size)--;//new
+				(*size)--;
 				*space_count = 0;
 				*newline_count = 1;
 			}
@@ -316,7 +334,7 @@ void not_last_char_in_line(word_wrap *ww, int *i, int *space_count, int *newline
 				shift_left(ww, i);
 				*newline_count = 0;
 				*space_count = 1;
-			}else{ //new else
+			}else{ 
 				*space_count = 1;
 				(*size)++;
 			}
@@ -344,6 +362,12 @@ void not_last_char_in_line(word_wrap *ww, int *i, int *space_count, int *newline
 	}
 }
 
+/*
+* Recieves a word_wrap *ww. Called by write_file after reading from ww->ifd into ww->buf and updating ww->bytes_read. Given ww, normalize
+* copies ww->bytes_read bytes from ww->buf to ww->dyn_buf[ww->total : ww->total + ww->bytes_read] then normalizes the new bytes copied to 
+* ww->dyn_buf. After normalize finishes executing ww->dyn_buf will contain only normalized text wrapped to ww->line_size width if no word
+* is larger than ww->line_size in ww->dyn_buf. 
+*/
 void normalize(word_wrap *ww){
 	ww->dyn_buf = realloc(ww->dyn_buf, ww->total + ww->bytes_read);
 	if(ww->dyn_buf == NULL){
@@ -373,7 +397,6 @@ void normalize(word_wrap *ww){
 			size++;
 			newline_count = 0;
 			space_count = 0;
-			//ww->line++;
 			continue;
 		}
 
@@ -382,23 +405,24 @@ void normalize(word_wrap *ww){
 			if(lc)
 				continue;
 			break;
-		}else{ // not last char in line case
+		}else{ 
 			not_last_char_in_line(ww, &i, &space_count, &newline_count, &first_char, &size);
 		}
 	}
 }
 
-/*----------------------- Write File ----------------------*/
+/*--------------------------------------------------------------------- Write File ----------------------------------------------------------------------*/
 
 /*
-* The goal of this function is to read all bytes from file, normalize the buffer as bytes
-* are read, then print the buffer after the chars have been normalized.
+* Receives a word_wrap *ww, char *path, int file_arg. write_file opens necessary files and repeatedly reads from ww->ifd(input file decriptor
+* correlating to path) and normalizes the bytes read from ww->ifd until a value less than or equal to 0 is returned from read. After reading/
+* normalizing is finished ww->total bytes are written from ww->dyn_buf to ww->ofd(output file descriptor). If for any reason a file can't be
+* opened/created write_file returns without reading/writing any bytes and prints relevant error message.
 */
 void write_file(word_wrap *ww, char *path, int file_arg){
 	if(set_file_descriptors(ww, path, file_arg))
 		return;
 
-	//reads from file if bytes_read > 0 it continues to read from file until bytes_read < 1	
 	do{	
 		ww->bytes_read = read(ww->ifd, ww->buf, BUFSIZE);
 		if(ww->bytes_read <= 0)

@@ -1,5 +1,8 @@
 #include "file_stack.h"
 
+/*
+* Sets attributes to reflect an empty stack and initializes lock/pop_read condition
+*/
 file_stack *init_file_stack(file_stack *s, int thread_count){
 	s->head = NULL;
 	s->empty = 1;
@@ -44,6 +47,9 @@ char *pop_f(file_stack *s){
 	return ret;
 }
 
+/*
+* Recieves a char *data. Called by push_f to dynamically allocate enough bytes to store the value needed to be pushed.
+*/
 char *make_string_f(char *data){
 	int len = strlen(data);
 	char *ret = malloc(len + 1);
@@ -69,17 +75,9 @@ void push_f(file_stack *s, char *data){
 	pthread_mutex_unlock(&s->lock);
 } 
 
-/*int is_empty(queue *q){
-	pthread_mutex_lock(&q->lock);
-
-	int ret = 0;
-	if(q->empty)
-		ret = 1;		
-
-	pthread_mutex_unlock(&q->lock);
-	return ret;
-}*/
-
+/*
+* Sets s->closed = 1, and wakes up any threads waiting to pop in s..
+*/
 void close_file_stack(file_stack *s){
 	pthread_mutex_lock(&s->lock);
 
@@ -87,19 +85,6 @@ void close_file_stack(file_stack *s){
 	int i = s->active_threads;
 	while(i++ < s->threads)
 		pthread_cond_signal(&s->pop_ready);		
-	//pthread_cond_broadcast(&s->pop_ready);		
+
 	pthread_mutex_unlock(&s->lock);	
 }
-
-
-/*
-void request_exit(queue *q, int thread_count){
-	pthread_mutex_lock(&q->lock);
-
-	q->request_exit = 1;
-	int i = thread_count;
-	while(i-- > 0)
-		pthread_cond_signal(&q->dequeue_ready);		
-
-	pthread_mutex_unlock(&q->lock);
-}*/

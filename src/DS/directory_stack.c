@@ -1,5 +1,8 @@
 #include "directory_stack.h"
 
+/*
+* Sets attributes to reflect an empty stack and initializes lock/pop_read condition
+*/
 directory_stack *init_directory_stack(directory_stack *s, int thread_count){
 	s->head = NULL;
 	s->empty = 1;
@@ -19,7 +22,6 @@ char *pop_d(directory_stack *s){
 	while(s->empty){
 		if(s->active_threads == 1){
 			close_directory_stack(s);
-			//pthread_mutex_unlock(&s->lock);
 			return NULL;
 		}
 
@@ -45,6 +47,9 @@ char *pop_d(directory_stack *s){
 	return ret;
 }
 
+/*
+* Recieves a char *data. Called by push_d to dynamically allocate enough bytes to store the value needed to be pushed.
+*/
 char *make_string_d(char *data){
 	int len = strlen(data);
 	char *ret = malloc(len + 1);
@@ -70,24 +75,15 @@ void push_d(directory_stack *s, char *data){
 	pthread_mutex_unlock(&s->lock);
 } 
 
-/*int is_empty(directory_queue *q){
-	pthread_mutex_lock(&q->lock);
-
-	int ret = 0;
-	if(q->empty)
-		ret = 1;		
-
-	pthread_mutex_unlock(&q->lock);
-	return ret;
-}*/
-
+/*
+* Sets s->closed = 1, and wakes up any threads waiting to pop in s..
+*/
 void close_directory_stack(directory_stack *s){
-	//pthread_mutex_lock(&s->lock);
-
 	s->closed = 1;
+
 	int i = s->active_threads;
 	while(i++ < s->threads)
 		pthread_cond_signal(&s->pop_ready);		
-	//pthread_cond_broadcast(&s->pop_ready);		
+
 	pthread_mutex_unlock(&s->lock);
 }

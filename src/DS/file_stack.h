@@ -10,7 +10,15 @@ typedef struct node{
 }node;
 #endif
 
-
+/*
+* - head is the first node in stack
+* - empty is a flag that indicates whether stack is empty
+* - closed is a flag that indicates whether more values will be added to stack
+* - threads is the number of threads that will be using the stack
+* - active_threads is the number of threads that are not waiting to pop from stack 
+* - lock is the lock needed in order to perform any operation stack
+* - pop_ready is a signal sent to any thread waiting to pop from stack
+*/
 typedef struct file_stack{
 	node *head;
 	int empty;
@@ -27,8 +35,4 @@ char *pop_f(file_stack *s);
 
 void push_f(file_stack *s, char *data);
 
-//int is_empty(file_queue *q);
-
 void close_file_stack(file_stack *s);
-
-//void request_exit(queue *q, int thread_count);
