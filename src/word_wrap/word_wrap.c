@@ -36,7 +36,7 @@ void p_error(word_wrap *ww, int code){
 		case 3:
 			if(ww->ofd != 1){
 				errno = EINVAL; 
-				fprintf(stderr, "Word(s) longer than line size: %d in %s : %s\n", ww->line_size, ww->path, /*(ww->total/(*//*+ 1*/ strerror(errno));
+				fprintf(stderr, "Word(s) longer than line size: %d in %s : %s\n", ww->line_size, ww->path, strerror(errno));
 			}else{
 			
 				errno = EINVAL; 
@@ -370,11 +370,9 @@ void not_last_char_in_line(word_wrap *ww, int *i, int *space_count, int *newline
 */
 void normalize(word_wrap *ww){
 	ww->dyn_buf = realloc(ww->dyn_buf, ww->total + ww->bytes_read);
-	if(ww->dyn_buf == NULL){
-		perror("Memory allocation error");
-		puts("asdfsadf");
+	if(ww->dyn_buf == NULL)
 		return;
-	}
+	
 
 	copy_to_dyn_buf(ww);
 	ww->total += ww->bytes_read;

@@ -26,9 +26,6 @@ int file_arg = 0;
 pthread_t *dir_threads_tid;
 pthread_t *file_threads_tid;
 
-int *dir_args;
-int *file_args;
-
 /*----------------------------------------------------------------- Input validation functions -------------------------------------------------------*/
 
 /*
@@ -273,7 +270,7 @@ void *directory_work(void *arg){
 	}	
 
 	close_file_stack(file_s);
-	pthread_exit(arg);
+	return NULL;
 }
 
 /*
@@ -292,7 +289,7 @@ void *file_work(void *arg){
 	}	
 
 	free(ww);
-	pthread_exit(arg);
+	return NULL;
 }
 
 
@@ -322,13 +319,11 @@ void exit_perror(int code){
 */
 void free_all(){
 	free(file_threads_tid);
-	free(file_args);
 	free(file_s);
 
 	if(!file_arg){
 		free(dir_s);
 		free(dir_threads_tid);
-		free(dir_args);
 	}
 }
 
@@ -353,21 +348,17 @@ void join_threads(){
 void start_threads(){
 	if(!file_arg){
 		dir_threads_tid = malloc(sizeof(pthread_t) * dir_threads);
-		dir_args = malloc(sizeof(int) * dir_threads);
 
-		for(int i = 0; i < dir_threads; i++){
-			dir_args[i] = 1;
-			pthread_create(&dir_threads_tid[i], NULL, directory_work, &dir_args[i]);	
-		}	
+		for(int i = 0; i < dir_threads; i++)
+			pthread_create(&dir_threads_tid[i], NULL, directory_work, NULL);	
+			
 	}
 
 	file_threads_tid = malloc(sizeof(pthread_t) * file_threads);
-	file_args = malloc(sizeof(int) * file_threads);
 
-	for(int i = 0; i < file_threads; i++){
-		file_args[i] = 1;
-		pthread_create(&file_threads_tid[i], NULL, file_work, &file_args[i]);
-	}
+	for(int i = 0; i < file_threads; i++)
+		pthread_create(&file_threads_tid[i], NULL, file_work, NULL);
+	
 
 	join_threads();
 }
