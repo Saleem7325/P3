@@ -443,6 +443,7 @@ void write_file(word_wrap *ww, char *path, int file_arg){
 		free(ww->path);
 	ww->dyn_buf = NULL;
 	ww->path = NULL;
+	ww->pe = 0;
 	ww->total = 0;
 	ww->line_start = 0;
 }
