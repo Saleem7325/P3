@@ -26,7 +26,7 @@ int file_arg = 0;
 pthread_t *dir_threads_tid;
 pthread_t *file_threads_tid;
 
-/*----------------------------------------------------------------- Input validation functions -------------------------------------------------------*/
+/*------------------------- Input validation functions -------------------------*/
 
 /*
 * Recieves a null terminated char *, returns 1 if string contains only digits or is of length 0 otherwise returns 0.
@@ -221,7 +221,7 @@ int is_reg_file(char *path){
 	return S_ISREG(sbuf.st_mode);
 }
 
-/*-------------------------------------------------------------------------- Thread functions -------------------------------------------------------------------- */
+/*-------------------- Thread functions --------------------*/
 
 /*
 * Recieves a null terminated char *dir_name corresponding to a directory path, opens the directory and reads every directory entry
@@ -293,7 +293,7 @@ void *file_work(void *arg){
 }
 
 
-/*-------------------------------------------------------------- Main thread functions ------------------------------------------------------------------------*/
+/*---------------- Main thread functions ----------------*/
 
 /*
 * Recieves an int, prints correspondning error message.

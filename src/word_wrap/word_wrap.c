@@ -2,8 +2,6 @@
 
 const char white_chars[6] = {'\t', '\n', ' ', '\v', '\f', '\r'};
 
-/*---------------------------------------------------- Initialize word_wrap attributes -----------------------------------------------------------*/
-
 /*
 * Receives a word_wrap *ww, and an int size which indicates line size. init_word_wrap sets relevant fields in ww struct
 * such that when write_file is passed ww struct pointer, write_file has necessary information for wrapping and writing.
@@ -19,7 +17,7 @@ word_wrap *init_word_wrap(word_wrap *ww, int size){
 	return ww;
 }
 
-/*------------------------------------------------------- Write File Helper functions ------------------------------------------------------------*/
+/*-------------------------- Write File Helper functions --------------------------*/
 
 /*
 * Receives a word_wrap *ww, and an int code which specifies which error message to print. p_error gets file data
@@ -128,7 +126,7 @@ int set_file_descriptors(word_wrap *ww, char *path, int file_arg){
 	return 0;
 }
 
-/*-------------------------------------------------------------- Normalize helper functions ---------------------------------------------------------*/
+/*-------------------------- Normalize helper functions --------------------------*/
 
 /*
 * Recieves a word_wrap *ww, writes '\n' to ww->ofd.
@@ -408,8 +406,6 @@ void normalize(word_wrap *ww){
 		}
 	}
 }
-
-/*--------------------------------------------------------------------- Write File ----------------------------------------------------------------------*/
 
 /*
 * Receives a word_wrap *ww, char *path, int file_arg. write_file opens necessary files and repeatedly reads from ww->ifd(input file decriptor

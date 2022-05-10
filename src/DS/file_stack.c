@@ -1,7 +1,9 @@
 #include "file_stack.h"
 
 /*
-* Sets attributes to reflect an empty stack and initializes lock/pop_read condition
+* Recieves a file_stack *s, and int thread_count which indicates total number of threads 
+* using stack. Sets attributes of s to relect an empty stack and initializes thread 
+* resources.
 */
 file_stack *init_file_stack(file_stack *s, int thread_count){
 	s->head = NULL;
@@ -16,6 +18,10 @@ file_stack *init_file_stack(file_stack *s, int thread_count){
 	return s;
 }
 
+/*
+* Recieves file_stack *s, returns first element at the top of stack. If stack is empty
+* returns NULL.
+*/
 char *pop_f(file_stack *s){
 	pthread_mutex_lock(&s->lock);
 
@@ -59,6 +65,9 @@ char *make_string_f(char *data){
 	return ret;
 }
 
+/*
+* Recieves file_stack *s and char *data. Adds data onto stack.
+*/
 void push_f(file_stack *s, char *data){
 	pthread_mutex_lock(&s->lock);
 
@@ -76,7 +85,7 @@ void push_f(file_stack *s, char *data){
 } 
 
 /*
-* Sets s->closed = 1, and wakes up any threads waiting to pop in s..
+* Sets s->closed = 1, and wakes up any threads waiting to pop from s.
 */
 void close_file_stack(file_stack *s){
 	pthread_mutex_lock(&s->lock);
