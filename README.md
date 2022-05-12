@@ -2,7 +2,7 @@
 - C program that wraps characters to match specified line width
 
 - When given a file and a valid(positive) line width:
-  -  ww wraps the characters in the input file such that each line in the file contains at most line width number of characters.
+  -  ww wraps the characters in the input file such that each line in the file contains at most line width number of characters. If a word contains more characters than the input line width, the word is included a line and an error message is printed.
   -  Prints the wrapped file to STDOUT.
 
 - When given a directory and a valid line width:
